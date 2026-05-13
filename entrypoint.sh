@@ -16,9 +16,6 @@ LOGIN_FILE=$MT5_DIR/MT5Login.ini
 if [ -f "$MT5_DIR/terminal64.exe" ]; then
     export WINEARCH=win64
     MT5_EXE=terminal64.exe
-elif [ -f "$MT5_DIR/terminal.exe" ]; then
-    export WINEARCH=win32
-    MT5_EXE=terminal.exe
 else
     echo "Cannot find MetaTrader executable in $MT5_DIR"
     exit 1
@@ -45,7 +42,7 @@ NewsEnable=0
 
 [Experts]
 AllowLiveTrading=0
-AllowDllImport=0
+AllowDllImport=1
 Enabled=1
 Account=0
 Profile=0
@@ -55,60 +52,82 @@ Expert=Advisors\lumir-mt5
 Symbol=XAUUSD
 EOF
 
-# 1. Dọn dẹp các file lock cũ nếu có (Tránh lỗi "Server is already active")
+# 1. Dọn dẹp các file lock cũ
 rm -f /tmp/.X99-lock
 rm -rf /tmp/.X11-unix/X99
 
-# 2. Khởi động Xvfb và kiểm tra xem nó đã chạy thực sự chưa
+# 2. Khởi động Xvfb
 Xvfb :99 -screen 0 1280x1024x24 &
 sleep 2
 
-# Kiểm tra nếu Xvfb không chạy được thì thoát sớm để debug
 if ! pgrep -x "Xvfb" > /dev/null; then
     echo "LỖI: Xvfb không khởi động được!"
     exit 1
 fi
 
-# 2. Cấu hình Wine để chạy ổn định hơn
 export WINEPREFIX=/home/wine/.wine
 export WINEDEBUG=-all
 export WINEDLLOVERRIDES="mscoree,mshtml=;secur32=n,b"
 export DISPLAY=:99
 
-# Recreate the prefix only when its architecture does not match the bundled terminal.
 if [ -f "$WINEPREFIX/system.reg" ]; then
     if [ "$WINEARCH" = "win64" ] && [ ! -d "$WINEPREFIX/drive_c/windows/syswow64" ]; then
         rm -rf "$WINEPREFIX"
     fi
-
     if [ "$WINEARCH" = "win32" ] && [ -d "$WINEPREFIX/drive_c/windows/syswow64" ]; then
         rm -rf "$WINEPREFIX"
     fi
 fi
 
-# Initialise Wine prefix and wait for wineserver to finish
 wineboot -u
 while pgrep wineserver > /dev/null; do sleep 1; done
 
-# Apply DLL overrides via registry
 wine reg add 'HKCU\Software\Wine\DllOverrides' /v mscoree /t REG_SZ /d '' /f
 wine reg add 'HKCU\Software\Wine\DllOverrides' /v mshtml   /t REG_SZ /d '' /f
 wine reg add 'HKCU\Software\Wine\DllOverrides' /v secur32  /t REG_SZ /d 'n,b' /f
 while pgrep wineserver > /dev/null; do sleep 1; done
 
 echo "Cấu hình Wine đã sẵn sàng."
-
 echo "Login MT5 với tài khoản: $ACCOUNT, Server: $SERVER"
-
 echo "Đang khởi động MT5..."
 
-# 3. Chạy MT5 
-# Chuyển vào thư mục chứa terminal để tránh lỗi đường dẫn tương đối nội bộ của Wine
 cd "$MT5_DIR"
-
-# QUAN TRỌNG: Phải có tiền tố /config: và đường dẫn Windows để MT5 luôn nạp đúng file login.
 "$WINE_BIN" "$MT5_EXE" /portable '/config:Z:\app\mt5\MT5Login.ini' &
 MT5_PID=$!
+
+# --- NEW AUTOMATION SECTION ---
+echo "Waiting for MT5 window to initialize..."
+sleep 15 # Wait for the GUI to actually load
+
+# Find the MT5 window and bring it to front
+WID=$(xdotool search --limit 1 --all --pid "$MT5_PID" --name "MetaTrader" || echo "")
+if [ -n "$WID" ]; then
+    xdotool windowactivate --sync "$WID"
+fi
+
+echo "Executing key sequence..."
+# sequence: esc -> ctrl+o -> 3x ctrl+tab -> 7x tab -> enter -> URL -> enter
+xdotool key Escape
+sleep 1
+xdotool key ctrl+o
+sleep 2
+xdotool key ctrl+Tab 
+xdotool key ctrl+Tab
+xdotool key ctrl+Tab
+sleep 1
+xdotool key Tab Tab Tab Tab Tab Tab Tab
+sleep 1
+xdotool key Return
+xdotool key Down
+xdotool key Return
+sleep 1
+xdotool type ""
+xdotool key Return
+sleep 1
+xdotool key Tab
+xdotool key Return
+echo "Key sequence complete."
+# ------------------------------
 
 echo "MT5 đang chạy ngầm..."
 wait "$MT5_PID"

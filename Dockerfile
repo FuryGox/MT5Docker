@@ -24,6 +24,7 @@ RUN dpkg --add-architecture i386 && \
     apt-get update -o Acquire::Retries=5 && \
     apt-get install -y -q --fix-missing --install-recommends winehq-devel && \
     apt-get install -y --fix-missing xvfb imagemagick && \
+    apt-get install -y xdotool && \
     rm -rf /var/lib/apt/lists/*
 
 # Add a non-root wine user
