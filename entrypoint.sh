@@ -31,7 +31,7 @@ if ! command -v "$WINE_BIN" > /dev/null 2>&1; then
     exit 1
 fi
 
-# 1. Tạo file cấu hình tự động login
+# 1. Tạo file cấu hình tự động login // Create the login configuration file for MT5
 cat <<EOF > "$LOGIN_FILE"
 [Common]
 Login=$ACCOUNT
@@ -108,23 +108,38 @@ fi
 echo "Executing key sequence..."
 # sequence: esc -> ctrl+o -> 3x ctrl+tab -> 7x tab -> enter -> URL -> enter
 xdotool key Escape
+xdotool key Escape
 sleep 1
 xdotool key ctrl+o
 sleep 2
 xdotool key ctrl+Tab 
-xdotool key ctrl+Tab
+sleep 1
 xdotool key ctrl+Tab
 sleep 1
-xdotool key Tab Tab Tab Tab Tab Tab Tab
+xdotool key ctrl+Tab
 sleep 1
-xdotool key Return
+xdotool key Tab
+sleep 1
+xdotool key Tab
+sleep 1
+xdotool key Tab
+sleep 1
+xdotool key Tab
+sleep 1
+xdotool key Tab
+sleep 1
+xdotool key Tab
+sleep 1
+xdotool key Tab
+sleep 1
 xdotool key Down
 xdotool key Return
 sleep 1
-xdotool type ""
+xdotool type "https://example.com/your-advisors-url"
 xdotool key Return
 sleep 1
 xdotool key Tab
+sleep 1
 xdotool key Return
 echo "Key sequence complete."
 # ------------------------------
